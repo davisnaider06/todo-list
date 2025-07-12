@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs'); // Para criptografar senhas
 const jwt = require('jsonwebtoken'); // Para gerar tokens
 const pool = require('../config/db');
+const { validationResult } = require('express-validator');
 
 //  chave secreta para JWT.
 const jwtSecret = process.env.JWT_SECRET || 'sua_chave_secreta_muito_forte';
