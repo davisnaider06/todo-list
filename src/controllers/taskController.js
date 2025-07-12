@@ -24,20 +24,51 @@ exports.createTask = async (req, res) => {
     }
 };
 
-//Obter todas as tarefas de um usuário
+// Obter todas as tarefas de um usuário com filtragem e pesquisa
 exports.getTasks = async (req, res) => {
     const userId = req.userId; // Obtido do middleware de autenticação
+    const { status, search } = req.query; // Obtém os parâmetros de consulta (query parameters)
+
+    let query = 'SELECT * FROM tasks WHERE user_id = $1';
+    const queryParams = [userId];
+    let paramIndex = 2; // Começa em 2 porque $1 já é userId
+
+    // Adicionar filtro por status, se fornecido
+    if (status) {
+        // Dica: Adicione uma cláusula WHERE para status.
+        // Exemplo: query += ' AND status = $' + paramIndex;
+        // queryParams.push(status);
+        // paramIndex++;
+    }
+
+    // Adicionar pesquisa por título ou descrição, se fornecido
+    if (search) {
+        // Dica: Adicione uma cláusula WHERE para title ou description usando LIKE e % (wildcard).
+        // Use ILIKE para pesquisa case-insensitive no PostgreSQL.
+        // Exemplo: query += ' AND (title ILIKE $' + paramIndex + ' OR description ILIKE $' + (paramIndex + 1) + ')';
+        // queryParams.push(`%${search}%`);
+        // queryParams.push(`%${search}%`);
+        // paramIndex += 2; // Incrementa por 2 porque adicionamos 2 parâmetros
+    }
+
+    // Adicionar ordenação padrão
+    query += ' ORDER BY created_at DESC';
+
+    console.log('Query SQL para getTasks:', query);
+    console.log('Parâmetros da query:', queryParams);
 
     try {
-        // Selecionar todas as tarefas do usuário logado
-        const result = await pool.query(
-            'SELECT * FROM tasks WHERE user_id = $1 ORDER BY created_at DESC',
-            [userId]
-        );
-        res.status(200).json(result.rows);
+        // 1. Executar a query construída dinamicamente
+        const result = await pool.query(query, queryParams);
+
+        // 2. Retornar as tarefas (status 200)
+        res.status(200).json({
+            message: 'Tarefas obtidas com sucesso!',
+            tasks: result.rows
+        });
 
     } catch (error) {
-        console.error('Erro ao obter tarefas:', error.message);
+        console.error('Erro ao obter tarefas com filtro/pesquisa:', error.message);
         res.status(500).json({ message: 'Erro interno do servidor ao obter tarefas.', error: error.message });
     }
 };
