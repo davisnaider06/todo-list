@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Tarefas - ToDo App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+
+   
+    <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center relative z-20">
+        <div class="flex items-center">
+            <button id="sidebar-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition duration-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+            <h1 class="text-xl font-bold ml-4">Minhas Tarefas</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+            <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition duration-200">
+                <svg class="w-6 h-6 light-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h1M3 12h1m15.325-7.757l-.707.707M4.343 19.657l-.707.707m12.728 0l-.707-.707M4.343 4.343l-.707-.707M12 18a6 6 0 100-12 6 6 0 000 12z"></path></svg>
+                <svg class="w-6 h-6 dark-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            </button>
+            <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hidden">
+                Sair
+            </button>
+        </div>
+    </header>
+
+    
+    <aside id="sidebar" class="fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 shadow-xl z-30 transform -translate-x-full">
+        <div class="p-6">
+            <h3 class="text-xl font-bold mb-6 text-gray-900 dark:text-white">Menu</h3>
+            <nav class="space-y-4">
+                <a href="#" class="block text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition duration-200">Minhas Tarefas</a>
+                <a href="#" class="block text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition duration-200">Configurações</a>
+            </nav>
+        </div>
+    </aside>
+
+    
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+   
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <div id="auth-section" class="flex justify-center items-center min-h-[calc(100vh-120px)]">   
+        </div>
+
+        <div id="task-section" class="max-w-4xl mx-auto hidden">
+            <div id="task-form-container">
+            </div>
+            <div id="task-list-container">
+            </div>
+        </div>
+    </main>
+
+    <!-- GSAP e AOS JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Inicializa AOS
+        AOS.init({
+            duration: 800,
+            once: true,
+        });
+
+        //variáveis de Estado (simulando estado React)
+        const API_BASE_URL = 'http://localhost:3010/api';
+        let isLoggedIn = false;
+        let token = localStorage.getItem('token') || '';
+        let theme = localStorage.getItem('theme') || 'light';
+        let isSidebarOpen = false;
+
+        let tasks = [];
+        let currentTask = null;
+        let showTaskForm = false;
+        let filterStatus = ''; 
+        let searchTerm = ''; 
+        let currentPage = 1;
+        let limit = 10;
+        let paginationInfo = {};
+
+        let authForm = { username: '', email: '', password: '' };
+        let authMode = 'login'; 
+        let authMessage = '';
+
+        //Referências a Elementos DOM
+        const htmlElement = document.documentElement;
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+        const sidebarToggleBtn = document.getElementById('sidebar-toggle');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const logoutBtn = document.getElementById('logout-button');
+        const authSection = document.getElementById('auth-section');
+        const taskSection = document.getElementById('task-section');
+        const taskFormContainer = document.getElementById('task-form-container');
+        const taskListContainer = document.getElementById('task-list-container');
+
+
+        /**
+         * Atualiza o tema claro/escuro no HTML e nos ícones.
+         */
+        function updateThemeUI() {
+            if (theme === 'dark') {
+                htmlElement.classList.add('dark');
+                themeToggleBtn.querySelector('.light-icon').classList.add('hidden');
+                themeToggleBtn.querySelector('.dark-icon').classList.remove('hidden');
+            } else {
+                htmlElement.classList.remove('dark');
+                themeToggleBtn.querySelector('.light-icon').classList.remove('hidden');
+                themeToggleBtn.querySelector('.dark-icon').classList.add('hidden');
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        
+          //Renderiza o formulário de autenticação (login ou registro).
+         
+        function renderAuthForm() {
+            authSection.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md" data-aos="fade-up">
+                    <h2 class="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-white">
+                        ${authMode === 'login' ? 'Login' : 'Registrar'}
+                    </h2>
+                    <form id="auth-form" class="space-y-4">
+                        ${authMode === 'register' ? `
+                            <div>
+                                <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="username">
+                                    Nome de Usuário
+                                </label>
+                                <input
+                                    type="text"
+                                    id="username"
+                                    name="username"
+                                    value="${authForm.username}"
+                                    class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                                    required
+                                />
+                            </div>
+                        ` : ''}
+                        <div>
+                            <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="email">
+                                Email
+                            </label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                value="${authForm.email}"
+                                class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="password">
+                                Senha
+                            </label>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                value="${authForm.password}"
+                                class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                                required
+                            />
+                        </div>
+                        ${authMessage ? `
+                            <p class="text-center text-sm ${authMessage.includes('sucesso') ? 'text-green-500' : 'text-red-500'}">
+                                ${authMessage}
+                            </p>
+                        ` : ''}
+                        <button
+                            type="submit"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 ease-in-out transform hover:scale-105"
+                        >
+                            ${authMode === 'login' ? 'Entrar' : 'Registrar'}
+                        </button>
+                    </form>
+                    <p class="mt-4 text-center text-gray-600 dark:text-gray-400 text-sm">
+                        ${authMode === 'login' ? `
+                            Não tem uma conta?
+                            <button id="switch-to-register" class="text-blue-500 hover:underline font-bold">
+                                Registre-se
+                            </button>
+                        ` : `
+                            Já tem uma conta?
+                            <button id="switch-to-login" class="text-blue-500 hover:underline font-bold">
+                                Faça Login
+                            </button>
+                        `}
+                    </p>
+                </div>
+            `;
+        
+            document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
+            if (document.getElementById('switch-to-register')) {
+                document.getElementById('switch-to-register').addEventListener('click', () => {
+                    authMode = 'register';
+                    authMessage = '';
+                    authForm = { username: '', email: '', password: '' }; // Limpa o formulário
+                    updateUI();
+                });
+            }
+            if (document.getElementById('switch-to-login')) {
+                document.getElementById('switch-to-login').addEventListener('click', () => {
+                    authMode = 'login';
+                    authMessage = '';
+                    authForm = { username: '', email: '', password: '' }; // Limpa o formulário
+                    updateUI();
+                });
+            }
+        }
+
+        
+          //Renderiza o formulário de criação/edição de tarefa.
+         
+        function renderTaskForm() {
+            if (!showTaskForm) {
+                taskFormContainer.innerHTML = '';
+                return;
+            }
+            taskFormContainer.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8" data-aos="fade-up">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+                        ${currentTask ? 'Editar Tarefa' : 'Nova Tarefa'}
+                    </h3>
+                    <form id="task-form" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="task-title">
+                                Título
+                            </label>
+                            <input
+                                type="text"
+                                id="task-title"
+                                name="title"
+                                value="${currentTask ? currentTask.title : ''}"
+                                class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="task-description">
+                                Descrição
+                            </label>
+                            <textarea
+                                id="task-description"
+                                name="description"
+                                rows="3"
+                                class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                            >${currentTask ? currentTask.description || '' : ''}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="task-status">
+                                Status
+                            </label>
+                            <select
+                                id="task-status"
+                                name="status"
+                                class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                            >
+                                <option value="pending" ${currentTask && currentTask.status === 'pending' ? 'selected' : ''}>Pendente</option>
+                                <option value="completed" ${currentTask && currentTask.status === 'completed' ? 'selected' : ''}>Concluída</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-end space-x-4">
+                            <button
+                                type="button"
+                                id="cancel-task-form"
+                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 dark:bg-gray-600 dark:hover:bg-gray-700 dark:text-white"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105"
+                            >
+                                ${currentTask ? 'Salvar Alterações' : 'Criar Tarefa'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.getElementById('task-form').addEventListener('submit', handleTaskFormSubmit);
+            document.getElementById('cancel-task-form').addEventListener('click', () => {
+                showTaskForm = false;
+                currentTask = null;
+                updateUI();
+            });
+           
+            AOS.refreshHard();
+        }
+
+       
+        function renderTaskList() {
+            let tasksHtml = '';
+            if (tasks.length === 0) {
+                tasksHtml = '<p class="text-center text-gray-600 dark:text-gray-400">Nenhuma tarefa encontrada.</p>';
+            } else {
+                tasksHtml = `<ul class="space-y-4">` + tasks.map(task => `
+                    <li
+                        class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 dark:bg-gray-700 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600"
+                        data-aos="fade-right"
+                    >
+                        <div class="flex-1 mb-2 sm:mb-0">
+                            <h4 class="text-lg font-semibold ${task.status === 'completed' ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'}">
+                                ${task.title}
+                            </h4>
+                            ${task.description ? `<p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${task.description}</p>` : ''}
+                            <span class="text-xs font-medium px-2.5 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'} mt-2 inline-block">
+                                ${task.status === 'completed' ? 'Concluída' : 'Pendente'}
+                            </span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button
+                                data-task-id="${task.id}"
+                                class="edit-task-btn bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-full transition duration-300 ease-in-out transform hover:scale-110"
+                                title="Editar"
+                            >
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-7.586 10.414A2 2 0 0011.001 18H15v-4.999L11.001 9l-4.414 4.414z"></path><path fill-rule="evenodd" d="M2 13.586l4.414 4.414L15 10.414 10.414 6 2 13.586zM7 17h6v-6H7v6z" clip-rule="evenodd"></path></svg>
+                            </button>
+                            <button
+                                data-task-id="${task.id}"
+                                class="delete-task-btn bg-red-500 hover:bg-red-600 text-white p-2 rounded-full transition duration-300 ease-in-out transform hover:scale-110"
+                                title="Deletar"
+                            >
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                            </button>
+                        </div>
+                    </li>
+                `).join('') + `</ul>`;
+            }
+
+            let paginationHtml = '';
+            if (paginationInfo.totalPages > 1) {
+                paginationHtml = `
+                    <div class="flex justify-center items-center space-x-4 mt-6">
+                        <button
+                            id="prev-page-btn"
+                            class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg ${paginationInfo.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-300 dark:hover:bg-gray-600'} transition duration-300 ease-in-out"
+                            ${paginationInfo.currentPage === 1 ? 'disabled' : ''}
+                        >
+                            Anterior
+                        </button>
+                        <span class="text-gray-700 dark:text-gray-300">
+                            Página ${paginationInfo.currentPage} de ${paginationInfo.totalPages}
+                        </span>
+                        <button
+                            id="next-page-btn"
+                            class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg ${paginationInfo.currentPage === paginationInfo.totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-300 dark:hover:bg-gray-600'} transition duration-300 ease-in-out"
+                            ${paginationInfo.currentPage === paginationInfo.totalPages ? 'disabled' : ''}
+                        >
+                            Próxima
+                        </button>
+                    </div>
+                `;
+            }
+
+            taskListContainer.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                    <div class="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                        <div class="flex items-center space-x-2 w-full sm:w-auto">
+                            <input
+                                type="text"
+                                placeholder="Pesquisar tarefas..."
+                                id="search-input"
+                                value="${searchTerm}"
+                                class="shadow appearance-none border rounded-lg py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600 w-full"
+                            />
+                            <select
+                                id="filter-status-select"
+                                class="shadow appearance-none border rounded-lg py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                            >
+                                <option value="" ${filterStatus === '' ? 'selected' : ''}>Todos os Status</option>
+                                <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>Pendente</option>
+                                <option value="completed" ${filterStatus === 'completed' ? 'selected' : ''}>Concluída</option>
+                            </select>
+                        </div>
+                        <button
+                            id="add-task-btn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto"
+                        >
+                            + Adicionar Nova Tarefa
+                        </button>
+                    </div>
+                    ${tasksHtml}
+                    ${paginationHtml}
+                </div>
+            `;
+           
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                searchTerm = e.target.value;
+                currentPage = 1;
+                fetchTasks();
+            });
+            document.getElementById('filter-status-select').addEventListener('change', (e) => {
+                filterStatus = e.target.value;
+                currentPage = 1; 
+                fetchTasks();
+            });
+            document.getElementById('add-task-btn').addEventListener('click', () => {
+                showTaskForm = true;
+                currentTask = null; //Garante que é um novo formulário
+                updateUI();
+                //nimação para rolar até o topo ou formulário
+                gsap.to(window, { duration: 0.5, scrollTo: 0 });
+            });
+
+            document.querySelectorAll('.edit-task-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const taskId = parseInt(e.currentTarget.dataset.taskId);
+                    currentTask = tasks.find(t => t.id === taskId);
+                    showTaskForm = true;
+                    updateUI();
+                    gsap.to(window, { duration: 0.5, scrollTo: 0 });
+                });
+            });
+            document.querySelectorAll('.delete-task-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const taskId = parseInt(e.currentTarget.dataset.taskId);
+                    handleDeleteTask(taskId);
+                });
+            });
+
+            if (paginationInfo.totalPages > 1) {
+                document.getElementById('prev-page-btn').addEventListener('click', () => {
+                    currentPage = Math.max(1, currentPage - 1);
+                    fetchTasks();
+                });
+                document.getElementById('next-page-btn').addEventListener('click', () => {
+                    currentPage = Math.min(paginationInfo.totalPages, currentPage + 1);
+                    fetchTasks();
+                });
+            }
+            
+            AOS.refreshHard();
+        }
+
+        
+         //Função principal para atualizar a UI com base nos estados.
+        
+        function updateUI() {
+            updateThemeUI(); //sempre atualiza o tema
+
+            if (isLoggedIn) {
+                authSection.classList.add('hidden');
+                taskSection.classList.remove('hidden');
+                logoutBtn.classList.remove('hidden');
+                renderTaskForm();
+                renderTaskList();
+            } else {
+                authSection.classList.remove('hidden');
+                taskSection.classList.add('hidden');
+                logoutBtn.classList.add('hidden');
+                renderAuthForm();
+            }
+        }
+
+
+        //altarar tema
+        function toggleTheme() {
+            theme = theme === 'light' ? 'dark' : 'light';
+            updateUI();
+        }
+
+       //sidebar
+        function toggleSidebar() {
+            isSidebarOpen = !isSidebarOpen;
+            if (isSidebarOpen) {
+                gsap.to(sidebar, { x: '0%', duration: 0.3, ease: 'power2.out' });
+                sidebarOverlay.classList.add('active');
+            } else {
+                gsap.to(sidebar, { x: '-100%', duration: 0.3, ease: 'power2.in' });
+                sidebarOverlay.classList.remove('active');
+            }
+        }
+
+    //autenticacao
+        async function handleAuthSubmit(event) {
+            event.preventDefault();
+            authMessage = ''; //limpa mensagens anteriores
+            const formData = new FormData(event.target);
+            authForm = Object.fromEntries(formData.entries()); //atualiza o estado do formulário
+
+            const endpoint = authMode === 'login' ? 'auth/login' : 'auth/register';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authForm),
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    authMessage = data.message;
+                    if (authMode === 'login') {
+                        token = data.token;
+                        localStorage.setItem('token', data.token);
+                        isLoggedIn = true;
+                        authForm = { username: '', email: '', password: '' }; //limpa o formulário
+                        fetchTasks(); //carrega tarefas após login
+                    } else {
+                        // dps do registro pode logar automaticamente ou pedir para logar
+                        authMode = 'login'; // Mudar para o formulário de login
+                    }
+                } else {
+                    authMessage = data.message || (data.errors && data.errors[0].msg) || 'Erro na autenticação.';
+                }
+            } catch (error) {
+                console.error('Erro na requisição de autenticação:', error);
+                authMessage = 'Erro de conexão com o servidor.';
+            } finally {
+                updateUI();
+            }
+        }
+
+      //logout
+        function handleLogout() {
+            token = '';
+            localStorage.removeItem('token');
+            isLoggedIn = false;
+            tasks = [];
+            authMessage = 'Você foi desconectado.';
+            authMode = 'login';
+            updateUI();
+        }
+
+        
+         //Busca as tarefas da API com filtros e paginação.
+         
+        async function fetchTasks() {
+            if (!token) return;
+
+            let url = `${API_BASE_URL}/tasks?page=${currentPage}&limit=${limit}`;
+            if (filterStatus) {
+                url += `&status=${filterStatus}`;
+            }
+            if (searchTerm) {
+                url += `&search=${searchTerm}`;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    tasks = data.tasks;
+                    paginationInfo = data.pagination;
+                } else {
+                    console.error('Erro ao buscar tarefas:', data.message);
+                    
+                    if (response.status === 401 || response.status === 403) {
+                        handleLogout();
+                    }
+                }
+            } catch (error) {
+                console.error('Erro de conexão ao buscar tarefas:', error);
+            } finally {
+                updateUI(); 
+            }
+        }
+
+        
+         //Lida com o envio do formulário de criação/edição de tarefa.
+         
+        async function handleTaskFormSubmit(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const taskData = Object.fromEntries(formData.entries());
+
+            const method = currentTask ? 'PUT' : 'POST';
+            const url = currentTask ? `${API_BASE_URL}/tasks/${currentTask.id}` : `${API_BASE_URL}/tasks`;
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(taskData),
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showPopup(data.message); // exibe popup customizado
+                    showTaskForm = false;
+                    currentTask = null;
+                    fetchTasks(); //recarregar tarefas
+
+function showPopup(message) {
+    // Remove popup anterior se existir
+    const oldPopup = document.getElementById('custom-popup');
+    if (oldPopup) oldPopup.remove();
+
+    const popup = document.createElement('div');
+    popup.id = 'custom-popup';
+    popup.className = 'fixed top-6 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 text-center';
+    popup.textContent = message;
+
+    document.body.appendChild(popup);
+
+    setTimeout(() => {
+        popup.remove();
+    }, 2500);
+}
+                } else {
+                    showPopup(data.message || (data.errors && data.errors[0].msg) || 'Erro ao salvar tarefa.');
+                }
+            } catch (error) {
+                console.error('Erro de conexão ao salvar tarefa:', error);
+                showPopup('Erro de conexão com o servidor.');
+            } finally {
+                updateUI();
+            }
+        }
+
+        
+         //exclui uma tarefa
+         
+        async function handleDeleteTask(taskId) {
+            if (confirm('Tem certeza que deseja deletar esta tarefa?')) { //Usando confirm para simplicidade
+                try {
+                    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                    });
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        alert(data.message);
+                        fetchTasks(); //Recarregar tarefas
+                    } else {
+                        alert(data.message || 'Erro ao deletar tarefa.');
+                    }
+                } catch (error) {
+                    console.error('Erro de conexão ao deletar tarefa:', error);
+                    alert('Erro de conexão com o servidor.');
+                } finally {
+                    updateUI();
+                }
+            }
+        }
+
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            //Verifica o token no localStorage ao carregar a página
+            if (token) {
+                isLoggedIn = true;
+                //Valida o token e obtém informações do usuário
+                fetch(`${API_BASE_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Token inválido');
+                    return response.json();
+                })
+                .then(data => {
+                    
+                    isLoggedIn = true;
+                })
+                .catch(() => {
+                    handleLogout();
+                });
+                fetchTasks();
+            }
+            updateUI(); //Renderiza a UI inicial
+
+            sidebarToggleBtn.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+            themeToggleBtn.addEventListener('click', toggleTheme);
+            logoutBtn.addEventListener('click', handleLogout);
+        });
+    </script>
+</body>
+</html>

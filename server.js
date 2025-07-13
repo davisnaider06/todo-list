@@ -59,6 +59,7 @@ app.use('/api/auth', authLimiter, authRoutes);
 //Todas as rotas definidas em taskRoutes.js serão prefixadas com /api/tasks
 app.use('/api/tasks', taskRoutes);
 
+
 app.use(errorHandler);
 
 app.listen(port, () => {
