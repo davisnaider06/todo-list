@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 
-// Sua chave secreta para JWT (precisa ser a mesma usada para assinar o token no login)
 const jwtSecret = process.env.JWT_SECRET || 'sua_chave_secreta_muito_forte';
 
 exports.protect = (req, res, next) => {
