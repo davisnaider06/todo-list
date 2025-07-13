@@ -32,10 +32,17 @@ exports.createTask = async (req, res) => {
     }
 };
 
-// Obter todas as tarefas de um usuário com filtragem e pesquisa
+// obter todas as tarefas de um usuário com filtragem e pesquisa
 exports.getTasks = async (req, res) => {
     const userId = req.userId;
-    const { status, search } = req.query;
+    const { status, search, page = 10, limit = 10} = req.query;
+
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt (limit, 10);
+
+    //calcular offset
+
+    const offset = (parsedPage - 1) * parsedLimit
 
     let query = 'SELECT * FROM tasks WHERE user_id = $1';
     const queryParams = [userId];
@@ -48,7 +55,7 @@ exports.getTasks = async (req, res) => {
         paramIndex++;
     }
 
-    // Adiciona pesquisa por título ou descrição, se fornecido
+    // Adiciona pesquisa por titulo ou descricao
     if (search) {
         query += ` AND (title ILIKE $${paramIndex} OR description ILIKE $${paramIndex + 1})`;
         queryParams.push(`%${search}%`);
@@ -59,24 +66,45 @@ exports.getTasks = async (req, res) => {
     // Adiciona ordenação
     query += ' ORDER BY created_at DESC';
 
+    // Adicionar limit e offset para paginação
+    query += ` LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
+    queryParams.push(parsedLimit, offset);
+
+    console.log('Query SQL para getTasks (com paginação):', query);
+    console.log('Parâmetros da query (com paginação):', queryParams);
+
     try {
         const result = await pool.query(query, queryParams);
 
-        // Se filtrou por status e não encontrou nenhuma tarefa
-        if (status && result.rows.length === 0) {
-            return res.status(404).json({message: `Não há nenhuma tarefa com o status "${status}"`});
+        let totalTasksQuery = 'SELECT COUNT(*) FROM tasks WHERE user_id = $1';
+        const totalTasksParams = [userId];
+        let totalParamIndex = 2;
+
+        if (status) {
+            totalTasksQuery += ` AND status = $${totalParamIndex++}`;
+            totalTasksParams.push(status);
+        }
+        if (search) {
+            totalTasksQuery += ` AND (title ILIKE $${totalParamIndex} OR description ILIKE $${totalParamIndex + 1})`;
+            totalTasksParams.push(`%${search}%`);
+            totalTasksParams.push(`%${search}%`);
+            totalParamIndex += 2;
         }
 
-        if (search && result.rows.length===0){
-            return res.status(404).json({message: 'Nenhuma tarefa encontrada com a pesquisa fornecida'});
-        } 
-
+        const totalResult = await pool.query(totalTasksQuery, totalTasksParams);
+        const totalTasks = parseInt(totalResult.rows[0].count, 10);
+        const totalPages = Math.ceil(totalTasks / parsedLimit);
 
         res.status(200).json({
-        message: 'Tarefas obtidas com sucesso!',
-        tasks: result.rows
-         });
-    
+            message: 'Tarefas obtidas com sucesso!',
+            tasks: result.rows,
+            pagination: {
+                totalTasks,
+                totalPages,
+                currentPage: parsedPage,
+                limit: parsedLimit
+            }
+        });
 
         
     } catch (error) {
