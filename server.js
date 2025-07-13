@@ -7,6 +7,7 @@ const authRoutes = require('./src/routes/authRoutes')
 const taskRoutes = require('./src/routes/taskRoutes')
 const { errorHandler } = require('./src/middlewares/errorMiddleware');
 const app = express();
+app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 
 app.use(cors());
