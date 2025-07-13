@@ -1,7 +1,12 @@
 const pool = require('../config/db');
-
+const { validationResult } = require('express-validator');
 // Criar uma nova tarefa
 exports.createTask = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
     const { title, description, status } = req.body;
     const userId = req.userId; // Obtido do middleware de autenticação
 
@@ -12,11 +17,14 @@ exports.createTask = async (req, res) => {
 
     try {
         // Inserir a nova tarefa no banco de dados
-        await pool.query(
+        const newTask =await pool.query(
             'INSERT INTO tasks (title, description, status, user_id) VALUES ($1, $2, $3, $4) RETURNING *',
             [title, description, status, userId]
         );  
-        res.status(201).json({message: 'Tarefa criada com sucesso'})
+        res.status(201).json({
+            message: 'Tarefa criada com sucesso!',
+            task: newTask.rows[0]
+        });
 
     } catch (error) {
         console.error('Erro ao criar tarefa:', error.message);
@@ -24,10 +32,17 @@ exports.createTask = async (req, res) => {
     }
 };
 
-// Obter todas as tarefas de um usuário com filtragem e pesquisa
+// obter todas as tarefas de um usuário com filtragem e pesquisa
 exports.getTasks = async (req, res) => {
     const userId = req.userId;
-    const { status, search } = req.query;
+    const { status, search, page = 10, limit = 10} = req.query;
+
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt (limit, 10);
+
+    //calcular offset
+
+    const offset = (parsedPage - 1) * parsedLimit
 
     let query = 'SELECT * FROM tasks WHERE user_id = $1';
     const queryParams = [userId];
@@ -40,7 +55,7 @@ exports.getTasks = async (req, res) => {
         paramIndex++;
     }
 
-    // Adiciona pesquisa por título ou descrição, se fornecido
+    // Adiciona pesquisa por titulo ou descricao
     if (search) {
         query += ` AND (title ILIKE $${paramIndex} OR description ILIKE $${paramIndex + 1})`;
         queryParams.push(`%${search}%`);
@@ -51,24 +66,45 @@ exports.getTasks = async (req, res) => {
     // Adiciona ordenação
     query += ' ORDER BY created_at DESC';
 
+    // Adicionar limit e offset para paginação
+    query += ` LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
+    queryParams.push(parsedLimit, offset);
+
+    console.log('Query SQL para getTasks (com paginação):', query);
+    console.log('Parâmetros da query (com paginação):', queryParams);
+
     try {
         const result = await pool.query(query, queryParams);
 
-        // Se filtrou por status e não encontrou nenhuma tarefa
-        if (status && result.rows.length === 0) {
-            return res.status(404).json({message: `Não há nenhuma tarefa com o status "${status}"`});
+        let totalTasksQuery = 'SELECT COUNT(*) FROM tasks WHERE user_id = $1';
+        const totalTasksParams = [userId];
+        let totalParamIndex = 2;
+
+        if (status) {
+            totalTasksQuery += ` AND status = $${totalParamIndex++}`;
+            totalTasksParams.push(status);
+        }
+        if (search) {
+            totalTasksQuery += ` AND (title ILIKE $${totalParamIndex} OR description ILIKE $${totalParamIndex + 1})`;
+            totalTasksParams.push(`%${search}%`);
+            totalTasksParams.push(`%${search}%`);
+            totalParamIndex += 2;
         }
 
-        if (search && result.rows.length===0){
-            return res.status(404).json({message: 'Nenhuma tarefa encontrada com a pesquisa fornecida'});
-        } 
-
+        const totalResult = await pool.query(totalTasksQuery, totalTasksParams);
+        const totalTasks = parseInt(totalResult.rows[0].count, 10);
+        const totalPages = Math.ceil(totalTasks / parsedLimit);
 
         res.status(200).json({
-        message: 'Tarefas obtidas com sucesso!',
-        tasks: result.rows
-         });
-    
+            message: 'Tarefas obtidas com sucesso!',
+            tasks: result.rows,
+            pagination: {
+                totalTasks,
+                totalPages,
+                currentPage: parsedPage,
+                limit: parsedLimit
+            }
+        });
 
         
     } catch (error) {
@@ -93,7 +129,10 @@ exports.getTaskById = async (req, res) => {
             return res.status(404).json({ message: 'Tarefa não encontrada ou não pertence ao usuário' });
         }
 
-        res.status(200).json(result.rows[0]);
+        res.status(200).json({
+            message: 'Tarefa obtida com sucesso!',
+            task: result.rows[0]
+        });
 
     } catch (error) {
         console.error('Erro ao obter tarefa por ID:', error.message);
@@ -103,6 +142,11 @@ exports.getTaskById = async (req, res) => {
 
 //Atualiza uma tarefa
 exports.updateTask = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
     const { id } = req.params;
     const { title, description, status } = req.body;
     const userId = req.userId;
@@ -114,18 +158,43 @@ exports.updateTask = async (req, res) => {
     
     try {
         //Atualizar a tarefa no banco de dados
-        const result = await pool.query(
-            'UPDATE tasks SET title = $1, description = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 AND user_id = $5 RETURNING *',
-            [title, description, status, id, userId]
-        )
+        const fieldsToUpdate = [];
+        const updateParams = [];
+        let paramIndex = 1;
 
-        
-        if (result.rowCount === 0){
-            return res.status(400).json({message: 'Tarefa não encontrada'});
-        };
+        if (title !== undefined) {
+            fieldsToUpdate.push(`title = $${paramIndex++}`);
+            updateParams.push(title);
+        }
+        if (description !== undefined) {
+            fieldsToUpdate.push(`description = $${paramIndex++}`);
+            updateParams.push(description);
+        }
+        if (status !== undefined) {
+            fieldsToUpdate.push(`status = $${paramIndex++}`);
+            updateParams.push(status);
+        }
 
-     
-        res.status(200).json(result.rows[0]);
+        // Se nenhum campo foi fornecido para atualização
+        if (fieldsToUpdate.length === 0) {
+            return res.status(400).json({ message: 'Nenhum campo fornecido para atualização.' });
+        }
+
+        fieldsToUpdate.push(`updated_at = CURRENT_TIMESTAMP`);
+
+        const query = `UPDATE tasks SET ${fieldsToUpdate.join(', ')} WHERE id = $${paramIndex++} AND user_id = $${paramIndex} RETURNING *`;
+        updateParams.push(id, userId);
+
+        const updatedTask = await pool.query(query, updateParams);
+
+        if (updatedTask.rows.length === 0) {
+            return res.status(404).json({ message: 'Tarefa não encontrada ou você não tem permissão para atualizá-la.' });
+        }
+
+        res.status(200).json({
+            message: 'Tarefa atualizada com sucesso!',
+            task: updatedTask.rows[0]
+        });
 
     } catch (error) {
         console.error('Erro ao atualizar tarefa:', error.message);
