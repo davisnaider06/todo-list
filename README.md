@@ -189,4 +189,3 @@ Recursos Adicionais: Adicionar funcionalidades como prioridade de tarefas, datas
 Otimização de Performance: Implementar caching, otimizar queries de banco de dados.
 
 Autor: Davi Snaider
-Licença: MIT (ou outra de sua preferência)
