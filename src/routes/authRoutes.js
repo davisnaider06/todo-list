@@ -1,8 +1,9 @@
 const express = require('express');
-const router = express.Router(); // O roteador do Express
-const authController = require('../controllers/authController'); // Importa o controlador de autenticação
+const router = express.Router();
+const authController = require('../controllers/authController');
 const { check } = require('express-validator');
-// Rota para registro de usuário
+
+
 router.post(
     '/register',
     [
@@ -13,8 +14,6 @@ router.post(
     authController.register
 );
 
-
-//Rota para login de usuário
 router.post(
     '/login',
     [
@@ -24,5 +23,4 @@ router.post(
     authController.login
 );
 
-// Exporta o roteador para ser usado no server.js
 module.exports = router;

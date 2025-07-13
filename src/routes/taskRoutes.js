@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const taskController = require('../controllers/taskController');
 const authMiddleware = require('../middlewares/authMiddleware');
-const { check, param } = require('express-validator'); // Importa check e param
+const { check, param } = require('express-validator');
 
-// Criar uma nova tarefa (POST /api/tasks)
+
 router.post(
     '/',
     authMiddleware.protect,
@@ -16,20 +16,20 @@ router.post(
     taskController.createTask
 );
 
-// Obter todas as tarefas do usuário (GET /api/tasks)
+
 router.get('/', authMiddleware.protect, taskController.getTasks);
 
-// Obter uma única tarefa por ID (GET /api/tasks/:id)
+
 router.get(
     '/:id',
     authMiddleware.protect,
     [
-        param('id', 'ID da tarefa inválido.').isInt() // Valida que o ID na URL é um inteiro
+        param('id', 'ID da tarefa inválido.').isInt()
     ],
     taskController.getTaskById
 );
 
-// Atualizar uma tarefa (PUT /api/tasks/:id)
+
 router.put(
     '/:id',
     authMiddleware.protect,
@@ -42,7 +42,7 @@ router.put(
     taskController.updateTask
 );
 
-// Deletar uma tarefa (DELETE /api/tasks/:id)
+
 router.delete(
     '/:id',
     authMiddleware.protect,
