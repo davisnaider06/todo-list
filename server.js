@@ -4,6 +4,7 @@ require('dotenv').config();
 const cors = require('cors');
 const authRoutes = require('./src/routes/authRoutes')
 const taskRoutes = require('./src/routes/taskRoutes')
+const { errorHandler } = require('./src/middlewares/errorMiddleware');
 const app = express();
 const port = process.env.port || 3000;
 
@@ -11,7 +12,7 @@ app.use(express.json());
 
 
 app.get('/', (req, res) => {
-    res.send('API de Gerenciamento de Tarefas está online! (Parte 2: Autenticação)');
+    res.send('API de Gerenciamento de Tarefas está online!');
 });
 
 // define uma rota para testar a conexão com o banco de dados
@@ -42,7 +43,7 @@ app.use('/api/auth', authRoutes);
 //Todas as rotas definidas em taskRoutes.js serão prefixadas com /api/tasks
 app.use('/api/tasks', taskRoutes);
 
-
+app.use(errorHandler);
 
 app.listen(port, () => {
     console.log(`Servidor rodando em http://localhost:${port}`);
