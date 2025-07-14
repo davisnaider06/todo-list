@@ -99,8 +99,7 @@
             duration: 800,
             once: true,
         });
-
-        //variáveis de Estado (simulando estado React)
+       
         const API_BASE_URL = 'https://tiddo-ojmg.onrender.com/api';
         let isLoggedIn = false;
         let token = localStorage.getItem('token') || '';
@@ -682,10 +681,10 @@ function showPopup(message) {
 
         
         document.addEventListener('DOMContentLoaded', () => {
-            //Verifica o token no localStorage ao carregar a página
+            //Verifica o token no localStorage ao carregar a pag
             if (token) {
                 isLoggedIn = true;
-                //Valida o token e obtém informações do usuário
+                //Valida o token e obtém informações do user
                 fetch(`${API_BASE_URL}/auth/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 })
