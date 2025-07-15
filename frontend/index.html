@@ -135,18 +135,17 @@
             once: true,
         });
 
-        // --- Variáveis de Estado (simulando estado React) ---
-        const API_BASE_URL = 'http://localhost:3010/api'; // AJUSTE AQUI PARA A URL DO SEU BACKEND NO RENDER QUANDO FOR DEPLOYAR!
+        const API_BASE_URL = 'https://tiddo-ojmg.onrender.com/api';
         let isLoggedIn = false;
         let token = localStorage.getItem('token') || '';
         let theme = localStorage.getItem('theme') || 'light';
         let isSidebarOpen = false;
 
         let tasks = [];
-        let currentTask = null; // Para edição
-        let showTaskForm = false; // Mostrar/esconder formulário de tarefa
-        let filterStatus = ''; // Filtro por status
-        let searchTerm = ''; // Termo de pesquisa
+        let currentTask = null; 
+        let showTaskForm = false; 
+        let filterStatus = ''; 
+        let searchTerm = ''; 
         let currentPage = 1;
         let limit = 10;
         let paginationInfo = {};
@@ -155,7 +154,7 @@
         let authMode = 'login'; // 'login' ou 'register'
         let authMessage = ''; // Mensagens de sucesso/erro da autenticação
 
-        // --- Referências a Elementos DOM ---
+       
         const htmlElement = document.documentElement;
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebar-overlay');
@@ -167,12 +166,12 @@
         const taskFormContainer = document.getElementById('task-form-container');
         const taskListDisplay = document.getElementById('task-list-display'); // Novo ID para a lista
 
-        // Elementos de controle (obtidos uma vez)
+        // Elementos de controle
         let searchInput;
         let filterStatusSelect;
         let addTaskBtn;
 
-        // --- Função de Debounce ---
+        
         function debounce(func, delay) {
             let timeout;
             return function(...args) {
@@ -184,13 +183,10 @@
 
         const debouncedFetchTasks = debounce(() => {
             fetchTasks();
-        }, 300); // 300ms de delay após a última digitação
+        }, 300); 
 
-        // --- Funções de Renderização da UI ---
-
-        /**
-         * Atualiza o tema claro/escuro no HTML e nos ícones.
-         */
+        
+        //tema
         function updateThemeUI() {
             if (theme === 'dark') {
                 htmlElement.classList.add('dark');
@@ -204,9 +200,7 @@
             localStorage.setItem('theme', theme);
         }
 
-        /**
-         * Renderiza o formulário de autenticação (login ou registro).
-         */
+
         function renderAuthForm() {
             authSection.innerHTML = `
                 <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md" data-aos="fade-up">
@@ -282,7 +276,7 @@
                     </p>
                 </div>
             `;
-            // Re-attach event listeners after innerHTML update
+            
             document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
             if (document.getElementById('switch-to-register')) {
                 document.getElementById('switch-to-register').addEventListener('click', () => {
@@ -302,9 +296,7 @@
             }
         }
 
-        /**
-         * Renderiza o formulário de criação/edição de tarefa.
-         */
+        
         function renderTaskForm() {
             if (!showTaskForm) {
                 taskFormContainer.innerHTML = '';
@@ -377,14 +369,11 @@
                 currentTask = null;
                 updateUI();
             });
-            // Re-initialize AOS for new elements
+            
             AOS.refreshHard();
         }
 
-        /**
-         * Renderiza apenas a lista de tarefas e a paginação.
-         * Os controles de pesquisa/filtro são manipulados separadamente.
-         */
+      
         function renderTaskListDisplay() {
             let tasksHtml = '';
             if (tasks.length === 0) {
@@ -453,7 +442,7 @@
                 ${tasksHtml}
                 ${paginationHtml}
             `;
-            // Re-attach event listeners for edit/delete/pagination
+            
             document.querySelectorAll('.edit-task-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const taskId = parseInt(e.currentTarget.dataset.taskId);
@@ -480,23 +469,20 @@
                     fetchTasks();
                 });
             }
-            // Re-initialize AOS for new elements
+            
             AOS.refreshHard();
         }
 
-        /**
-         * Função principal para atualizar a UI com base nos estados.
-         */
         function updateUI() {
-            updateThemeUI(); // Sempre atualiza o tema
+            updateThemeUI(); //sempre atualiza o tema
 
             if (isLoggedIn) {
                 authSection.classList.add('hidden');
                 taskSection.classList.remove('hidden');
                 logoutBtn.classList.remove('hidden');
-                renderTaskForm(); // Renderiza o formulário de tarefa (se showTaskForm for true)
-                renderTaskListDisplay(); // Renderiza apenas a lista e paginação
-                // Atualiza os valores dos inputs de controle que são estáticos
+                renderTaskForm(); // Renderiza o formulário de tarefa
+                renderTaskListDisplay(); //renderiza apenas a lista e paginação
+                //atualiza os valores dos inputs de controle que são estáticos
                 if (searchInput) searchInput.value = searchTerm;
                 if (filterStatusSelect) filterStatusSelect.value = filterStatus;
 
