@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minhas Tarefas - ToDo App</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class',
+            darkMode: 'class', // Habilita dark mode via classe 'dark' no html
             theme: {
                 extend: {
                     fontFamily: {
@@ -17,13 +18,15 @@
             },
         };
     </script>
+    <!-- Google Fonts - Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- AOS CSS -->
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
         }
-        
+        /* Estilos para o overlay da sidebar */
         .sidebar-overlay {
             position: fixed;
             top: 0;
@@ -44,7 +47,7 @@
 </head>
 <body class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
 
-   
+    <!-- Header -->
     <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center relative z-20">
         <div class="flex items-center">
             <button id="sidebar-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition duration-200">
@@ -63,7 +66,7 @@
         </div>
     </header>
 
-    
+    <!-- Sidebar -->
     <aside id="sidebar" class="fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 shadow-xl z-30 transform -translate-x-full">
         <div class="p-6">
             <h3 class="text-xl font-bold mb-6 text-gray-900 dark:text-white">Menu</h3>
@@ -74,23 +77,55 @@
         </div>
     </aside>
 
-    
+    <!-- Sidebar Overlay -->
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
-   
+    <!-- Main Content -->
     <main class="container mx-auto p-4 sm:p-6 lg:p-8">
-        <div id="auth-section" class="flex justify-center items-center min-h-[calc(100vh-120px)]">   
+        <div id="auth-section" class="flex justify-center items-center min-h-[calc(100vh-120px)]">
+            <!-- Auth Form will be rendered here -->
         </div>
 
         <div id="task-section" class="max-w-4xl mx-auto hidden">
-            <div id="task-form-container">
+            <!-- Task Form will be rendered here -->
+            <div id="task-form-container"></div>
+
+            <!-- Controles de Pesquisa e Filtro (Agora estáticos, não redesenhados com a lista) -->
+            <div id="task-controls" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
+                <div class="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <input
+                            type="text"
+                            placeholder="Pesquisar tarefas..."
+                            id="search-input"
+                            class="shadow appearance-none border rounded-lg py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600 w-full"
+                        />
+                        <select
+                            id="filter-status-select"
+                            class="shadow appearance-none border rounded-lg py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                        >
+                            <option value="">Todos os Status</option>
+                            <option value="pending">Pendente</option>
+                            <option value="completed">Concluída</option>
+                        </select>
+                    </div>
+                    <button
+                        id="add-task-btn"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto"
+                    >
+                        + Adicionar Nova Tarefa
+                    </button>
+                </div>
             </div>
-            <div id="task-list-container">
+
+            <!-- Apenas a Lista de Tarefas e Paginação (Será redesenhada) -->
+            <div id="task-list-display" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <!-- Task List will be rendered here -->
             </div>
         </div>
     </main>
 
-    <!-- GSAP e AOS JS -->
+    <!-- GSAP and AOS JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <script>
@@ -100,27 +135,27 @@
             once: true,
         });
 
-        //variáveis de Estado (simulando estado React)
-        const API_BASE_URL = 'https://tiddo-ojmg.onrender.com/api';
+        // --- Variáveis de Estado (simulando estado React) ---
+        const API_BASE_URL = 'http://localhost:3010/api'; // AJUSTE AQUI PARA A URL DO SEU BACKEND NO RENDER QUANDO FOR DEPLOYAR!
         let isLoggedIn = false;
         let token = localStorage.getItem('token') || '';
         let theme = localStorage.getItem('theme') || 'light';
         let isSidebarOpen = false;
 
         let tasks = [];
-        let currentTask = null;
-        let showTaskForm = false;
-        let filterStatus = ''; 
-        let searchTerm = ''; 
+        let currentTask = null; // Para edição
+        let showTaskForm = false; // Mostrar/esconder formulário de tarefa
+        let filterStatus = ''; // Filtro por status
+        let searchTerm = ''; // Termo de pesquisa
         let currentPage = 1;
         let limit = 10;
         let paginationInfo = {};
 
         let authForm = { username: '', email: '', password: '' };
-        let authMode = 'login'; 
-        let authMessage = '';
+        let authMode = 'login'; // 'login' ou 'register'
+        let authMessage = ''; // Mensagens de sucesso/erro da autenticação
 
-        //Referências a Elementos DOM
+        // --- Referências a Elementos DOM ---
         const htmlElement = document.documentElement;
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebar-overlay');
@@ -130,8 +165,28 @@
         const authSection = document.getElementById('auth-section');
         const taskSection = document.getElementById('task-section');
         const taskFormContainer = document.getElementById('task-form-container');
-        const taskListContainer = document.getElementById('task-list-container');
+        const taskListDisplay = document.getElementById('task-list-display'); // Novo ID para a lista
 
+        // Elementos de controle (obtidos uma vez)
+        let searchInput;
+        let filterStatusSelect;
+        let addTaskBtn;
+
+        // --- Função de Debounce ---
+        function debounce(func, delay) {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), delay);
+            };
+        }
+
+        const debouncedFetchTasks = debounce(() => {
+            fetchTasks();
+        }, 300); // 300ms de delay após a última digitação
+
+        // --- Funções de Renderização da UI ---
 
         /**
          * Atualiza o tema claro/escuro no HTML e nos ícones.
@@ -149,9 +204,9 @@
             localStorage.setItem('theme', theme);
         }
 
-        
-          //Renderiza o formulário de autenticação (login ou registro).
-         
+        /**
+         * Renderiza o formulário de autenticação (login ou registro).
+         */
         function renderAuthForm() {
             authSection.innerHTML = `
                 <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md" data-aos="fade-up">
@@ -227,7 +282,7 @@
                     </p>
                 </div>
             `;
-        
+            // Re-attach event listeners after innerHTML update
             document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
             if (document.getElementById('switch-to-register')) {
                 document.getElementById('switch-to-register').addEventListener('click', () => {
@@ -247,9 +302,9 @@
             }
         }
 
-        
-          //Renderiza o formulário de criação/edição de tarefa.
-         
+        /**
+         * Renderiza o formulário de criação/edição de tarefa.
+         */
         function renderTaskForm() {
             if (!showTaskForm) {
                 taskFormContainer.innerHTML = '';
@@ -322,12 +377,15 @@
                 currentTask = null;
                 updateUI();
             });
-           
+            // Re-initialize AOS for new elements
             AOS.refreshHard();
         }
 
-       
-        function renderTaskList() {
+        /**
+         * Renderiza apenas a lista de tarefas e a paginação.
+         * Os controles de pesquisa/filtro são manipulados separadamente.
+         */
+        function renderTaskListDisplay() {
             let tasksHtml = '';
             if (tasks.length === 0) {
                 tasksHtml = '<p class="text-center text-gray-600 dark:text-gray-400">Nenhuma tarefa encontrada.</p>';
@@ -391,56 +449,11 @@
                 `;
             }
 
-            taskListContainer.innerHTML = `
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                    <div class="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                        <div class="flex items-center space-x-2 w-full sm:w-auto">
-                            <input
-                                type="text"
-                                placeholder="Pesquisar tarefas..."
-                                id="search-input"
-                                value="${searchTerm}"
-                                class="shadow appearance-none border rounded-lg py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600 w-full"
-                            />
-                            <select
-                                id="filter-status-select"
-                                class="shadow appearance-none border rounded-lg py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                            >
-                                <option value="" ${filterStatus === '' ? 'selected' : ''}>Todos os Status</option>
-                                <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>Pendente</option>
-                                <option value="completed" ${filterStatus === 'completed' ? 'selected' : ''}>Concluída</option>
-                            </select>
-                        </div>
-                        <button
-                            id="add-task-btn"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto"
-                        >
-                            + Adicionar Nova Tarefa
-                        </button>
-                    </div>
-                    ${tasksHtml}
-                    ${paginationHtml}
-                </div>
+            taskListDisplay.innerHTML = `
+                ${tasksHtml}
+                ${paginationHtml}
             `;
-           
-            document.getElementById('search-input').addEventListener('input', (e) => {
-                searchTerm = e.target.value;
-                currentPage = 1;
-                fetchTasks();
-            });
-            document.getElementById('filter-status-select').addEventListener('change', (e) => {
-                filterStatus = e.target.value;
-                currentPage = 1; 
-                fetchTasks();
-            });
-            document.getElementById('add-task-btn').addEventListener('click', () => {
-                showTaskForm = true;
-                currentTask = null; //Garante que é um novo formulário
-                updateUI();
-                //nimação para rolar até o topo ou formulário
-                gsap.to(window, { duration: 0.5, scrollTo: 0 });
-            });
-
+            // Re-attach event listeners for edit/delete/pagination
             document.querySelectorAll('.edit-task-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const taskId = parseInt(e.currentTarget.dataset.taskId);
@@ -467,22 +480,26 @@
                     fetchTasks();
                 });
             }
-            
+            // Re-initialize AOS for new elements
             AOS.refreshHard();
         }
 
-        
-         //Função principal para atualizar a UI com base nos estados.
-        
+        /**
+         * Função principal para atualizar a UI com base nos estados.
+         */
         function updateUI() {
-            updateThemeUI(); //sempre atualiza o tema
+            updateThemeUI(); // Sempre atualiza o tema
 
             if (isLoggedIn) {
                 authSection.classList.add('hidden');
                 taskSection.classList.remove('hidden');
                 logoutBtn.classList.remove('hidden');
-                renderTaskForm();
-                renderTaskList();
+                renderTaskForm(); // Renderiza o formulário de tarefa (se showTaskForm for true)
+                renderTaskListDisplay(); // Renderiza apenas a lista e paginação
+                // Atualiza os valores dos inputs de controle que são estáticos
+                if (searchInput) searchInput.value = searchTerm;
+                if (filterStatusSelect) filterStatusSelect.value = filterStatus;
+
             } else {
                 authSection.classList.remove('hidden');
                 taskSection.classList.add('hidden');
@@ -491,14 +508,19 @@
             }
         }
 
+        // --- Funções de Lógica ---
 
-        //altarar tema
+        /**
+         * Alterna o tema claro/escuro.
+         */
         function toggleTheme() {
             theme = theme === 'light' ? 'dark' : 'light';
             updateUI();
         }
 
-       //sidebar
+        /**
+         * Alterna a abertura/fechamento da sidebar com GSAP.
+         */
         function toggleSidebar() {
             isSidebarOpen = !isSidebarOpen;
             if (isSidebarOpen) {
@@ -510,12 +532,14 @@
             }
         }
 
-    //autenticacao
+        /**
+         * Lida com o envio do formulário de autenticação (login/registro).
+         */
         async function handleAuthSubmit(event) {
             event.preventDefault();
-            authMessage = ''; //limpa mensagens anteriores
+            authMessage = ''; // Limpa mensagens anteriores
             const formData = new FormData(event.target);
-            authForm = Object.fromEntries(formData.entries()); //atualiza o estado do formulário
+            authForm = Object.fromEntries(formData.entries()); // Atualiza o estado do formulário
 
             const endpoint = authMode === 'login' ? 'auth/login' : 'auth/register';
 
@@ -533,10 +557,10 @@
                         token = data.token;
                         localStorage.setItem('token', data.token);
                         isLoggedIn = true;
-                        authForm = { username: '', email: '', password: '' }; //limpa o formulário
-                        fetchTasks(); //carrega tarefas após login
+                        authForm = { username: '', email: '', password: '' }; // Limpa o formulário
+                        fetchTasks(); // Carrega tarefas após login
                     } else {
-                        // dps do registro pode logar automaticamente ou pedir para logar
+                        // Após registro, pode-se logar automaticamente ou pedir para logar
                         authMode = 'login'; // Mudar para o formulário de login
                     }
                 } else {
@@ -546,11 +570,13 @@
                 console.error('Erro na requisição de autenticação:', error);
                 authMessage = 'Erro de conexão com o servidor.';
             } finally {
-                updateUI();
+                updateUI(); // Re-renderiza a UI para mostrar mensagens ou mudar de seção
             }
         }
 
-      //logout
+        /**
+         * Lida com o logout do usuário.
+         */
         function handleLogout() {
             token = '';
             localStorage.removeItem('token');
@@ -561,9 +587,9 @@
             updateUI();
         }
 
-        
-         //Busca as tarefas da API com filtros e paginação.
-         
+        /**
+         * Busca as tarefas da API com filtros e paginação.
+         */
         async function fetchTasks() {
             if (!token) return;
 
@@ -586,7 +612,7 @@
                     paginationInfo = data.pagination;
                 } else {
                     console.error('Erro ao buscar tarefas:', data.message);
-                    
+                    // Se o token for inválido, deslogar
                     if (response.status === 401 || response.status === 403) {
                         handleLogout();
                     }
@@ -594,13 +620,13 @@
             } catch (error) {
                 console.error('Erro de conexão ao buscar tarefas:', error);
             } finally {
-                updateUI(); 
+                updateUI(); // Re-renderiza a lista de tarefas
             }
         }
 
-        
-         //Lida com o envio do formulário de criação/edição de tarefa.
-         
+        /**
+         * Lida com o envio do formulário de criação/edição de tarefa.
+         */
         async function handleTaskFormSubmit(event) {
             event.preventDefault();
             const formData = new FormData(event.target);
@@ -621,43 +647,26 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    showPopup(data.message); // exibe popup customizado
+                    alert(data.message); // Usando alert para simplicidade, em prod usaria um modal
                     showTaskForm = false;
                     currentTask = null;
-                    fetchTasks(); //recarregar tarefas
-
-function showPopup(message) {
-    // Remove popup anterior se existir
-    const oldPopup = document.getElementById('custom-popup');
-    if (oldPopup) oldPopup.remove();
-
-    const popup = document.createElement('div');
-    popup.id = 'custom-popup';
-    popup.className = 'fixed top-6 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 text-center';
-    popup.textContent = message;
-
-    document.body.appendChild(popup);
-
-    setTimeout(() => {
-        popup.remove();
-    }, 2500);
-}
+                    fetchTasks(); // Recarregar tarefas
                 } else {
-                    showPopup(data.message || (data.errors && data.errors[0].msg) || 'Erro ao salvar tarefa.');
+                    alert(data.message || (data.errors && data.errors[0].msg) || 'Erro ao salvar tarefa.');
                 }
             } catch (error) {
                 console.error('Erro de conexão ao salvar tarefa:', error);
-                showPopup('Erro de conexão com o servidor.');
+                alert('Erro de conexão com o servidor.');
             } finally {
                 updateUI();
             }
         }
 
-        
-         //exclui uma tarefa
-         
+        /**
+         * Lida com a exclusão de uma tarefa.
+         */
         async function handleDeleteTask(taskId) {
-            if (confirm('Tem certeza que deseja deletar esta tarefa?')) { //Usando confirm para simplicidade
+            if (confirm('Tem certeza que deseja deletar esta tarefa?')) { // Usando confirm para simplicidade
                 try {
                     const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
                         method: 'DELETE',
@@ -667,7 +676,7 @@ function showPopup(message) {
 
                     if (response.ok) {
                         alert(data.message);
-                        fetchTasks(); //Recarregar tarefas
+                        fetchTasks(); // Recarregar tarefas
                     } else {
                         alert(data.message || 'Erro ao deletar tarefa.');
                     }
@@ -680,34 +689,43 @@ function showPopup(message) {
             }
         }
 
-        
+        // --- Event Listeners Iniciais (Anexados uma única vez) ---
         document.addEventListener('DOMContentLoaded', () => {
-            //Verifica o token no localStorage ao carregar a página
-            if (token) {
-                isLoggedIn = true;
-                //Valida o token e obtém informações do usuário
-                fetch(`${API_BASE_URL}/auth/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                })
-                .then(response => {
-                    if (!response.ok) throw new Error('Token inválido');
-                    return response.json();
-                })
-                .then(data => {
-                    
-                    isLoggedIn = true;
-                })
-                .catch(() => {
-                    handleLogout();
-                });
-                fetchTasks();
-            }
-            updateUI(); //Renderiza a UI inicial
+            // Obter referências aos elementos de controle
+            searchInput = document.getElementById('search-input');
+            filterStatusSelect = document.getElementById('filter-status-select');
+            addTaskBtn = document.getElementById('add-task-btn');
 
+            // Anexar listeners
             sidebarToggleBtn.addEventListener('click', toggleSidebar);
             sidebarOverlay.addEventListener('click', toggleSidebar);
             themeToggleBtn.addEventListener('click', toggleTheme);
             logoutBtn.addEventListener('click', handleLogout);
+
+            // Listeners para os controles de pesquisa/filtro/adicionar tarefa
+            searchInput.addEventListener('input', (e) => {
+                searchTerm = e.target.value;
+                currentPage = 1; // Reset page on search
+                debouncedFetchTasks(); // Usa a versão "debounced"
+            });
+            filterStatusSelect.addEventListener('change', (e) => {
+                filterStatus = e.target.value;
+                currentPage = 1; // Reset page on filter
+                fetchTasks(); // Não precisa de debounce para select, a mudança é intencional
+            });
+            addTaskBtn.addEventListener('click', () => {
+                showTaskForm = true;
+                currentTask = null; // Garante que é um novo formulário
+                updateUI();
+                gsap.to(window, { duration: 0.5, scrollTo: 0 }); // Rola para o topo
+            });
+
+            // Verifica o token no localStorage ao carregar a página
+            if (token) {
+                isLoggedIn = true;
+                fetchTasks();
+            }
+            updateUI(); // Renderiza a UI inicial
         });
     </script>
 </body>
